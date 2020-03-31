@@ -32,9 +32,9 @@
             this.StandartFloorRadioButton = new System.Windows.Forms.RadioButton();
             this.LevelsLabel = new System.Windows.Forms.Label();
             this.LevelsCheckedListBox = new System.Windows.Forms.CheckedListBox();
-            this.FinishingListBox = new System.Windows.Forms.CheckedListBox();
+            this.FinishingCheckedListBox = new System.Windows.Forms.CheckedListBox();
             this.FinishingLabel = new System.Windows.Forms.Label();
-            this.Copy = new System.Windows.Forms.Button();
+            this.CopyButton = new System.Windows.Forms.Button();
             this.backgroundWorker1 = new System.ComponentModel.BackgroundWorker();
             this.GroupsComboBox = new System.Windows.Forms.ComboBox();
             this.StandartFloorComboBox = new System.Windows.Forms.ComboBox();
@@ -90,19 +90,17 @@
             this.LevelsCheckedListBox.Name = "LevelsCheckedListBox";
             this.LevelsCheckedListBox.Size = new System.Drawing.Size(202, 289);
             this.LevelsCheckedListBox.TabIndex = 5;
-            this.LevelsCheckedListBox.SelectedIndexChanged += new System.EventHandler(this.LevelsCheckedListBox_SelectedIndexChanged);
             // 
-            // FinishingListBox
+            // FinishingCheckedListBox
             // 
-            this.FinishingListBox.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(236)))), ((int)(((byte)(236)))));
-            this.FinishingListBox.CheckOnClick = true;
-            this.FinishingListBox.Enabled = false;
-            this.FinishingListBox.FormattingEnabled = true;
-            this.FinishingListBox.Location = new System.Drawing.Point(26, 163);
-            this.FinishingListBox.Name = "FinishingListBox";
-            this.FinishingListBox.Size = new System.Drawing.Size(201, 94);
-            this.FinishingListBox.TabIndex = 6;
-            this.FinishingListBox.SelectedIndexChanged += new System.EventHandler(this.FinishingListBox_SelectedIndexChanged);
+            this.FinishingCheckedListBox.BackColor = System.Drawing.SystemColors.Window;
+            this.FinishingCheckedListBox.CheckOnClick = true;
+            this.FinishingCheckedListBox.Enabled = false;
+            this.FinishingCheckedListBox.FormattingEnabled = true;
+            this.FinishingCheckedListBox.Location = new System.Drawing.Point(26, 163);
+            this.FinishingCheckedListBox.Name = "FinishingCheckedListBox";
+            this.FinishingCheckedListBox.Size = new System.Drawing.Size(201, 94);
+            this.FinishingCheckedListBox.TabIndex = 6;
             // 
             // FinishingLabel
             // 
@@ -114,36 +112,33 @@
             this.FinishingLabel.TabIndex = 7;
             this.FinishingLabel.Text = "Типы отделочных систем";
             // 
-            // Copy
+            // CopyButton
             // 
-            this.Copy.Location = new System.Drawing.Point(388, 336);
-            this.Copy.Name = "Copy";
-            this.Copy.Size = new System.Drawing.Size(75, 23);
-            this.Copy.TabIndex = 8;
-            this.Copy.Text = "Копировать";
-            this.Copy.UseVisualStyleBackColor = true;
-            this.Copy.Click += new System.EventHandler(this.Copy_Click);
+            this.CopyButton.Location = new System.Drawing.Point(382, 336);
+            this.CopyButton.Name = "CopyButton";
+            this.CopyButton.Size = new System.Drawing.Size(75, 23);
+            this.CopyButton.TabIndex = 8;
+            this.CopyButton.Text = "Копировать";
+            this.CopyButton.UseVisualStyleBackColor = true;
             // 
             // GroupsComboBox
             // 
+            this.GroupsComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.GroupsComboBox.FormattingEnabled = true;
             this.GroupsComboBox.Location = new System.Drawing.Point(26, 35);
             this.GroupsComboBox.Name = "GroupsComboBox";
             this.GroupsComboBox.Size = new System.Drawing.Size(202, 21);
             this.GroupsComboBox.TabIndex = 9;
-            this.GroupsComboBox.Text = "--Выберете группу--";
-            this.GroupsComboBox.SelectedIndexChanged += new System.EventHandler(this.GroupsComboBox_SelectedIndexChanged);
             // 
             // StandartFloorComboBox
             // 
-            this.StandartFloorComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.Simple;
+            this.StandartFloorComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.StandartFloorComboBox.Enabled = false;
             this.StandartFloorComboBox.FormattingEnabled = true;
             this.StandartFloorComboBox.Location = new System.Drawing.Point(26, 98);
             this.StandartFloorComboBox.Name = "StandartFloorComboBox";
             this.StandartFloorComboBox.Size = new System.Drawing.Size(202, 21);
             this.StandartFloorComboBox.TabIndex = 10;
-            this.StandartFloorComboBox.Text = "--Выберете типовой этаж--";
-            this.StandartFloorComboBox.SelectedIndexChanged += new System.EventHandler(this.StandartFloorComboBox_SelectedIndexChanged);
             // 
             // GroupError
             // 
@@ -202,12 +197,10 @@
             // 
             // UserGroupNameTextBox
             // 
-            this.UserGroupNameTextBox.Enabled = false;
             this.UserGroupNameTextBox.Location = new System.Drawing.Point(26, 297);
             this.UserGroupNameTextBox.Name = "UserGroupNameTextBox";
             this.UserGroupNameTextBox.Size = new System.Drawing.Size(202, 20);
             this.UserGroupNameTextBox.TabIndex = 16;
-            this.UserGroupNameTextBox.TextChanged += new System.EventHandler(this.UserGroupNameTextBox_TextChanged);
             // 
             // NameError
             // 
@@ -224,7 +217,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(475, 371);
+            this.ClientSize = new System.Drawing.Size(467, 371);
             this.Controls.Add(this.NameError);
             this.Controls.Add(this.UserGroupNameTextBox);
             this.Controls.Add(this.UserGroupName);
@@ -234,9 +227,9 @@
             this.Controls.Add(this.GroupError);
             this.Controls.Add(this.StandartFloorComboBox);
             this.Controls.Add(this.GroupsComboBox);
-            this.Controls.Add(this.Copy);
+            this.Controls.Add(this.CopyButton);
             this.Controls.Add(this.FinishingLabel);
-            this.Controls.Add(this.FinishingListBox);
+            this.Controls.Add(this.FinishingCheckedListBox);
             this.Controls.Add(this.LevelsCheckedListBox);
             this.Controls.Add(this.LevelsLabel);
             this.Controls.Add(this.StandartFloorRadioButton);
@@ -249,23 +242,22 @@
         }
 
         #endregion
-
-        private System.Windows.Forms.RadioButton GroupsRadioButton;
-        private System.Windows.Forms.RadioButton StandartFloorRadioButton;
         private System.Windows.Forms.Label LevelsLabel;
-        private System.Windows.Forms.CheckedListBox LevelsCheckedListBox;
-        private System.Windows.Forms.CheckedListBox FinishingListBox;
         private System.Windows.Forms.Label FinishingLabel;
-        private System.Windows.Forms.Button Copy;
         private System.ComponentModel.BackgroundWorker backgroundWorker1;
-        private System.Windows.Forms.ComboBox GroupsComboBox;
-        private System.Windows.Forms.ComboBox StandartFloorComboBox;
         private System.Windows.Forms.Label GroupError;
         private System.Windows.Forms.Label StandartFloorError;
         private System.Windows.Forms.Label FinishingError;
         private System.Windows.Forms.Label LevelError;
         private System.Windows.Forms.Label UserGroupName;
-        private System.Windows.Forms.TextBox UserGroupNameTextBox;
         private System.Windows.Forms.Label NameError;
+        public System.Windows.Forms.CheckedListBox LevelsCheckedListBox;
+        public System.Windows.Forms.CheckedListBox FinishingCheckedListBox;
+        public System.Windows.Forms.Button CopyButton;
+        public System.Windows.Forms.ComboBox GroupsComboBox;
+        public System.Windows.Forms.ComboBox StandartFloorComboBox;
+        public System.Windows.Forms.TextBox UserGroupNameTextBox;
+        public System.Windows.Forms.RadioButton GroupsRadioButton;
+        public System.Windows.Forms.RadioButton StandartFloorRadioButton;
     }
 }

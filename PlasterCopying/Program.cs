@@ -13,94 +13,231 @@ namespace PlasterCopying
     {
         public Result Execute(ExternalCommandData revit, ref string message, ElementSet elements)
         {
-            var document = revit.Application.ActiveUIDocument.Document;
+            var doc = revit.Application.ActiveUIDocument.Document;
+
             try
             {
-                string errorMessage;
-                Logic.CreateLogic(document, out errorMessage);
-                if (errorMessage != null)
+                var existingGroups = new FilteredElementCollector(doc).OfClass(typeof(GroupType)).ToElements();
+                var existingGroupNames = existingGroups.Select(x => x.Name);
+
+                var existingFinishingGroups = new List<GroupType>();
+                foreach (GroupType gt in existingGroups)
                 {
-                    TaskDialog.Show("Ошибка", errorMessage);
-                }
-                else
-                {
-                    var levels = Logic.Levels
-                        .ToDictionary(x => x.Id, x => x.Name);
-                    var groups = Logic.GroupTypes
-                        .ToDictionary(x => x.Id, x=> new Tuple<string, List<ElementId>>(x.Name, GetGroupId(x)));
-                    var dialog = new Dialog(levels, groups);
-                    dialog.ShowDialog();
-                    while (dialog.DialogResult == DialogResult.OK)
+                    if (gt.Groups.Size == 0)
+                        continue;
+
+                    var groupIterator = gt.Groups.ForwardIterator();
+                    groupIterator.MoveNext();
+
+                    var instance = groupIterator.Current as Group;
+
+                    bool isFinishingGroup = true;
+                    ElementId sameLevelId = ElementId.InvalidElementId;
+                    foreach (var id in instance.GetMemberIds())
                     {
-                        // debug
-                        var result = new StringBuilder();
-                        result.AppendLine($"SelectedGroupId: {(dialog.SelectedGroupId == null ? 0 : dialog.SelectedGroupId.IntegerValue)}");
-                        result.AppendLine($"SelectedStandartFloorId: {(dialog.SelectedStandartFloorId == null ? 0 : dialog.SelectedStandartFloorId.IntegerValue)}");
-                        result.AppendLine("SelectedFinishingsIds:");
-                        foreach (var x in dialog.SelectedFinishingsIds)
-                            result.AppendLine(x.IntegerValue.ToString());
-                        result.AppendLine($"SelectedUserGroupName: {dialog.SelectedUserGroupName}");
-                        result.AppendLine("SelectedLevelsIds:");
-                        foreach (var x in dialog.SelectedLevelsIds)
-                            result.AppendLine(x.IntegerValue.ToString());
-                        TaskDialog.Show("Selected", result.ToString());
-                        // end debug
-                        if (dialog.SelectedGroupId != null)
+                        var member = doc.GetElement(id);
+
+                        if (!(member is Wall))
                         {
+                            isFinishingGroup = false;
                             break;
                         }
+
+                        if (sameLevelId == ElementId.InvalidElementId)
+                            sameLevelId = member.LevelId;
+
+                        if (sameLevelId != member.LevelId)
+                        {
+                            isFinishingGroup = false;
+                            break;
+                        }
+                    }
+
+                    if (isFinishingGroup)
+                        existingFinishingGroups.Add(gt);
+                }
+
+                var existingFinishingGroupNames = existingFinishingGroups.Select(x => x.Name).ToArray();
+
+                var levels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().OrderBy(x => x.ProjectElevation).ToList();
+                var levelNames = levels.Select(x => x.Name).ToArray();
+
+                Dialog gui = new Dialog();
+                gui.GroupsComboBox.Items.AddRange(existingFinishingGroupNames);
+                gui.StandartFloorComboBox.Items.AddRange(levelNames);
+
+
+                gui.StandartFloorComboBox.SelectedIndexChanged += delegate
+                {
+                    int index = gui.StandartFloorComboBox.SelectedIndex;
+                    var level = levels[index];
+                    var levelWallTypes = Logic.GetTypesOfWallsForLevel(doc, level.Id);
+                    gui.FinishingCheckedListBox.Tag = levelWallTypes.Select(x => x.Id).ToList();
+
+                    gui.FinishingCheckedListBox.Items.Clear();
+                    gui.FinishingCheckedListBox.Items.AddRange(levelWallTypes.Select(x => x.Name).ToArray());
+
+                    gui.LevelsCheckedListBox.Items.Clear();
+                    for (int i = 0; i < levels.Count; i++)
+                    {
+                        if (i == index) continue;
+
+                        gui.LevelsCheckedListBox.Items.Add(levels[i].Name);
+                    }
+                };
+
+                gui.CopyButton.Click += delegate
+                {
+                    if (string.IsNullOrEmpty(gui.UserGroupNameTextBox.Text) || !NamingUtils.IsValidName(gui.UserGroupNameTextBox.Text))
+                    {
+                        System.Windows.Forms.MessageBox.Show("Введите корректное имя для группы");
+                        return;
+                    }
+
+                    if (existingGroupNames.Contains(gui.UserGroupNameTextBox.Text))
+                    {
+                        System.Windows.Forms.MessageBox.Show("В текущем проекте уже существует группа с таким именем");
+                        return;
+                    }
+
+                    if (gui.LevelsCheckedListBox.CheckedItems.Count == 0)
+                    {
+                        System.Windows.Forms.MessageBox.Show("Выберите уровни для копирования выбранных отделочных стен");
+                        return;
+                    }
+
+                    if (gui.GroupsRadioButton.Checked)
+                    {
+                        if (gui.GroupsComboBox.SelectedIndex < 0)
+                        {
+                            System.Windows.Forms.MessageBox.Show("Выберите группу для копирования");
+                            return;
+                        }
+                    }
+
+                    else
+                    {
+                        if (gui.StandartFloorComboBox.SelectedIndex < 0)
+                        {
+                            System.Windows.Forms.MessageBox.Show("Выберите типовой этаж");
+                            return;
+                        }
+
+                        if (gui.FinishingCheckedListBox.CheckedItems.Count == 0)
+                        {
+                            System.Windows.Forms.MessageBox.Show("Выберите типы отделочных стен на типовом этаже для копирования");
+                            return;
+                        }
+                    }
+
+                    gui.DialogResult = DialogResult.OK;
+                };
+
+                if (gui.ShowDialog() != DialogResult.OK)
+                    return Result.Cancelled;
+
+                Transaction tr = new Transaction(doc, "Копирование отделки");
+                tr.Start();
+
+                GroupType finishingGroupType = null;
+
+                if (gui.GroupsRadioButton.Checked)
+                {
+                    finishingGroupType = existingFinishingGroups[gui.GroupsComboBox.SelectedIndex];
+                }
+
+                else
+                {
+                    var selectedLevel = levels[gui.StandartFloorComboBox.SelectedIndex];
+                    var levelWallTypes = gui.FinishingCheckedListBox.Tag as List<ElementId>;
+                    var selectedWallTypes = new List<ElementId>();
+                    foreach (int ind in gui.FinishingCheckedListBox.CheckedIndices)
+                        selectedWallTypes.Add(levelWallTypes[ind]);
+
+                    var levelWalls = new FilteredElementCollector(doc).OfClass(typeof(Wall)).WherePasses(new ElementLevelFilter(selectedLevel.Id)).Cast<Wall>()
+                        .Where(x => selectedWallTypes.Contains(x.WallType.Id));
+
+                    var conflictingElements = levelWalls.Where(x => x.GroupId != ElementId.InvalidElementId);
+
+                    if (conflictingElements.Count() > 0)
+                    {
+                        TaskDialog conflictDialog = new TaskDialog("Предупреждение");
+                        conflictDialog.MainContent = "Одна или несколько выбранных стен уже добавлены в другие группы проекта. Нажмите \"Показать подробнее\", чтобы посмотреть список конфликтных элементов";
+                        conflictDialog.ExpandedContent = string.Join("\n", conflictingElements.Select(x => doc.GetElement(x.GroupId).Name + ": " + x.Name + " (" + x.Id.IntegerValue + ")").OrderBy(x => x));
+                        conflictDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Пропустить элементы и продолжить");
+                        conflictDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Разгруппировать конфликтные группы");
+                        conflictDialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Отменить");
+
+                        var conflictDialogResult = conflictDialog.Show();
+
+                        if (conflictDialogResult == TaskDialogResult.CommandLink1)
+                        {
+                            var newGroup = doc.Create.NewGroup(levelWalls.Where(x => x.GroupId == ElementId.InvalidElementId).Select(x => x.Id).ToList());
+                            finishingGroupType = newGroup.GroupType;
+                            finishingGroupType.Name = gui.UserGroupNameTextBox.Text;
+                        }
+
+                        else if (conflictDialogResult == TaskDialogResult.CommandLink2)
+                        {
+                            var conflictingGroups = conflictingElements.Select(x => x.GroupId).Distinct().Select(x => doc.GetElement(x));
+                            foreach (Group g in conflictingGroups)
+                                g.UngroupMembers();
+
+                            doc.Regenerate();
+
+                            var newGroup = doc.Create.NewGroup(levelWalls.Select(x => x.Id).ToList());
+                            finishingGroupType = newGroup.GroupType;
+                            finishingGroupType.Name = gui.UserGroupNameTextBox.Text;
+                        }
+
                         else
                         {
-                            var conflictFinishing = new List<ElementId>();
-                            foreach (var finishingId in dialog.SelectedFinishingsIds)
-                            {
-                                if (Logic.IsFinishingInAnotherGroup(finishingId))
-                                    conflictFinishing.Add(finishingId);
-                            }
-                            if (conflictFinishing.Count > 0)
-                            {
-                                var task = new TaskDialog("Конфликт");
-                                var conflictNames = new List<string>();
-                                foreach (var item in conflictFinishing)
-                                    conflictNames.Add(GetNameById(document, item));
-                                task.ExpandedContent = string.Join("\n", conflictFinishing);//conflictNames
-                                task.MainInstruction = "Некоторые элементы уже включены в другие группы." +
-                                "Их можно удалить из других групп либо пропустить." +
-                                "Удалить элементы из других групп?";
-                                var buttons = TaskDialogCommonButtons.No| TaskDialogCommonButtons.Retry| TaskDialogCommonButtons.Yes;
-                                task.CommonButtons = buttons;
-                                var taskResult = task.Show();
-                                if (taskResult == TaskDialogResult.No)
-                                {
-                                    foreach (var item in conflictFinishing)
-                                        dialog.SelectedFinishingsIds.Remove(item);
-                                    break;
-                                }
-                                if (taskResult == TaskDialogResult.Yes)
-                                {
-                                    RemoveFinishingFromGroups(document, conflictFinishing);
-                                    break;
-                                }
-                            }
-                            else
-                                break;
+                            return Result.Cancelled;
                         }
-                        dialog.DialogResult = DialogResult.None;
-                        dialog.ShowDialog();
                     }
-                    //var group = document.Create.NewGroup(dialog.SelectedFinishingsIds);
-                    //if(!string.IsNullOrEmpty(dialog.SelectedUserGroupName))
-                    //    group.Name = dialog.SelectedUserGroupName;
+
+                    else
+                    {
+                        var newGroup = doc.Create.NewGroup(levelWalls.Select(x => x.Id).ToList());
+                        finishingGroupType = newGroup.GroupType;
+                        finishingGroupType.Name = gui.UserGroupNameTextBox.Text;
+                    }
                 }
-                
-                //TaskDialog.Show("DuctManagement", "Погнали!");
+
+                Group finishingGroupInstance = null;
+                foreach (Group g in finishingGroupType.Groups)
+                {
+                    finishingGroupInstance = g;
+                    break;
+                }
+
+                var groupLocation = finishingGroupInstance.Location as LocationPoint;
+                XYZ groupInsertPoint = groupLocation.Point;
+
+                List<Wall> finishingWalls = finishingGroupInstance.GetMemberIds().Select(x => doc.GetElement(x)).Cast<Wall>().ToList();
+                Level finishingLevel = doc.GetElement(finishingWalls.First().LevelId) as Level;
+
+                List<Level> copyLevels = new List<Level>();
+                foreach (string selectedLevel in gui.LevelsCheckedListBox.CheckedItems)
+                {
+                    copyLevels.Add(levels.First(x => x.Name == selectedLevel));
+                }
+
+                foreach (Level l in copyLevels)
+                {
+                    double heightDifference = l.ProjectElevation - finishingLevel.ProjectElevation;
+                    XYZ copyPoint = groupInsertPoint + heightDifference * XYZ.BasisZ;
+                    var newFinishingGroup = doc.Create.PlaceGroup(copyPoint, finishingGroupType);
+                }
+
+                tr.Commit();
+                return Result.Succeeded;
             }
-            catch (Exception e)
+
+            catch
             {
-                TaskDialog.Show("Error", e.ToString());
                 return Result.Failed;
             }
-            return Result.Succeeded;
         }
 
         private List<ElementId> GetGroupId(GroupType group)

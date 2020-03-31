@@ -29,9 +29,9 @@ namespace PlasterCopying
             GroupTypes = GetGroups();
         }
 
-        public static WallType[] GetTypesOfWallsForLevel(ElementId levelId)
+        public static WallType[] GetTypesOfWallsForLevel(Document doc, ElementId levelId)
         {
-            var collector = new FilteredElementCollector(Document);
+            var collector = new FilteredElementCollector(doc);
             var levelFilter = new ElementLevelFilter(levelId);
             var allWallsOnLevel = collector
                 .OfClass(typeof(Wall))
