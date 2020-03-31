@@ -211,6 +211,8 @@ namespace PlasterCopying
                     break;
                 }
 
+                var originalMembers = finishingGroupInstance.GetMemberIds();
+
                 var groupLocation = finishingGroupInstance.Location as LocationPoint;
                 XYZ groupInsertPoint = groupLocation.Point;
 
@@ -228,6 +230,16 @@ namespace PlasterCopying
                     double heightDifference = l.ProjectElevation - finishingLevel.ProjectElevation;
                     XYZ copyPoint = groupInsertPoint + heightDifference * XYZ.BasisZ;
                     var newFinishingGroup = doc.Create.PlaceGroup(copyPoint, finishingGroupType);
+
+                    var members = newFinishingGroup.GetMemberIds();
+
+                    for (int i = 0; i < members.Count; i++)
+                    {
+                        Element original = doc.GetElement(originalMembers[i]);
+                        Element copy = doc.GetElement(members[i]);
+
+                        CopyFinishJoinings(original, copy);
+                    }
                 }
 
                 tr.Commit();
@@ -237,6 +249,53 @@ namespace PlasterCopying
             catch
             {
                 return Result.Failed;
+            }
+        }
+
+
+        static void CopyFinishJoinings(Element originalElement, Element copyElement)
+        {
+            Document doc = originalElement.Document;
+            var originalJoinedElementIds = JoinGeometryUtils.GetJoinedElements(doc, originalElement);
+
+            //WallUtils.DisallowWallJoinAtEnd((Wall)copyElement, 0);
+            //WallUtils.DisallowWallJoinAtEnd((Wall)copyElement, 1);
+
+            var copyBoundingBox = copyElement.get_BoundingBox(null);
+            var copyOutline = new Outline(copyBoundingBox.Min, copyBoundingBox.Max);
+            var wallsNearCopy = new FilteredElementCollector(doc).OfClass(typeof(Wall)).WherePasses(new BoundingBoxIntersectsFilter(copyOutline));
+
+            foreach (var id in originalJoinedElementIds)
+            {
+                Element originalJoin = doc.GetElement(id);
+
+                if (!(originalJoin is Wall)) continue;
+
+                Curve originalCurve = (originalJoin.Location as LocationCurve).Curve;
+                XYZ originalCurveStart = originalCurve.GetEndPoint(0);
+                XYZ originalCurveEnd = originalCurve.GetEndPoint(1);
+
+                Wall newJoin = null;
+                foreach (var w in wallsNearCopy)
+                {
+                    Curve copyCurve = (w.Location as LocationCurve).Curve;
+                    XYZ copyCurveStart = copyCurve.GetEndPoint(0);
+                    XYZ copyCurveEnd = copyCurve.GetEndPoint(1);
+
+                    copyCurveStart = new XYZ(copyCurveStart.X, copyCurveStart.Y, originalCurveStart.Z);
+                    copyCurveEnd = new XYZ(copyCurveEnd.X, copyCurveEnd.Y, originalCurveEnd.Z);
+
+                    if (copyCurveStart.IsAlmostEqualTo(originalCurveStart) && copyCurveEnd.IsAlmostEqualTo(originalCurveEnd))
+                    {
+                        newJoin = w as Wall;
+                        break;
+                    }
+                }
+
+                if (newJoin != null)
+                {
+                    JoinGeometryUtils.JoinGeometry(doc, copyElement, newJoin);
+                }
             }
         }
 
